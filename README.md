@@ -36,6 +36,13 @@ $ ooo --user "whats the tallest building?"
 The tallest building in the world is the Burj Khalifa, located in Dubai, United Arab Emirates. Its height is 828 meters (2,716 feet)
 ```
 
+
+## Install
+```
+brew tap nictap/tap
+brew install ooo
+```
+
 ## Options
 
 | Flag          | Default           |
