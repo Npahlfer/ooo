@@ -1,5 +1,6 @@
 # OOO
-Prompt Ollama from the command line either through the stdin or just as a normal prompt.
+Prompt Ollama from the command line either through the stdin or just as a normal prompt.<br>
+You need to have [Ollama](https://github.com/jmorganca/ollama) installed in order to use ooo.
 
 ## Examples:
 ```shell
