@@ -29,15 +29,6 @@ enum PromptResponse {
     Error(String),
 }
 
-impl PromptResponse {
-    fn as_str(&self) -> &str {
-        match self {
-            PromptResponse::Response(res) => res.as_str(),
-            PromptResponse::Error(res) => res.as_str(),
-        }
-    }
-}
-
 impl std::fmt::Display for PromptResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -48,7 +39,7 @@ impl std::fmt::Display for PromptResponse {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), io::Error> {
+async fn main() -> Result<(), String> {
     let Arguments {
         system,
         user,
@@ -74,18 +65,26 @@ async fn main() -> Result<(), io::Error> {
         system
     };
 
-    let stdin_input = format!(". Input: {}", stdin_text);
-    let prompt = format!("{} {}.\n{} {}{}", SYSTEM_PROMPT, USER_PROMPT, system, user, stdin_input);
+    let stdin_input = if stdin_text.is_empty() {
+        format!(". Input: {}", stdin_text)
+    } else {
+        String::new()
+    };
+
+    let prompt = format!(
+        "{} {}.\n{} {}{}",
+        SYSTEM_PROMPT, system, USER_PROMPT, user, stdin_input
+    );
+
     let res = prompt_ollama(prompt, &ollama, model.to_string()).await;
 
-    if let PromptResponse::Error(res) = res {
-        println!("error prompting ollama with model {}", model);
-        return Err(io::Error::new(io::ErrorKind::Other, res));
+    match res {
+        PromptResponse::Error(_) => Err("unable to request Ollama, is Ollama running?".to_string()),
+        PromptResponse::Response(res) => {
+            output_to_stdout(res.as_str());
+            Ok(())
+        }
     }
-
-    output_to_stdout(res.as_str());
-
-    Ok(())
 }
 
 fn read_stdin_lines() -> String {
@@ -106,22 +105,6 @@ fn output_to_stdout(output: &str) {
     stdout.flush().unwrap();
 }
 
-fn continue_gathering_args(
-    args: &mut std::iter::Skip<std::env::Args>,
-) -> bool {
-    if let Some(arg) = args.next() {
-        if arg == SYSTEM_FLAG
-            || arg == USER_FLAG
-            || arg == MODEL_FLAG
-            || arg == URL_FLAG
-            || arg == PORT_FLAG
-        {
-            return true;
-        }
-    }
-    false
-}
-
 fn get_parsed_arguments() -> Arguments {
     let mut args = std::env::args().skip(1);
     let mut system = Vec::new();
@@ -130,14 +113,18 @@ fn get_parsed_arguments() -> Arguments {
     let mut url = None;
     let mut port = None;
 
+    let mut last_active_flag = None;
+
     while let Some(arg) = args.next() {
         match arg.as_str() {
             SYSTEM_FLAG => {
-                while continue_gathering_args(&mut args) {
-                    system.push(args.next().unwrap_or_default())
-                }
+                system.push(args.next().unwrap());
+                last_active_flag = Some(SYSTEM_FLAG);
             }
-            USER_FLAG => user.push(args.next().unwrap_or_default()),
+            USER_FLAG => {
+                user.push(args.next().unwrap());
+                last_active_flag = Some(USER_FLAG);
+            }
             MODEL_FLAG => model = Some(args.next().unwrap_or_default()),
             URL_FLAG => url = Some(args.next().unwrap_or_default()),
             PORT_FLAG => {
@@ -145,7 +132,13 @@ fn get_parsed_arguments() -> Arguments {
                     port = port_str.parse::<u16>().ok();
                 }
             }
-            _ => user.push(arg),
+            _ => {
+                if last_active_flag == Some(SYSTEM_FLAG) {
+                    system.push(arg)
+                } else if last_active_flag == Some(USER_FLAG) {
+                    user.push(arg)
+                }
+            }
         }
     }
 
@@ -184,4 +177,3 @@ fn get_default_system_prompt() -> String {
     ]
     .join(" ")
 }
-
