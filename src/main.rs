@@ -65,7 +65,7 @@ async fn main() -> Result<(), String> {
         system
     };
 
-    let stdin_input = if stdin_text.is_empty() {
+    let stdin_input = if !stdin_text.is_empty() {
         format!(". Input: {}", stdin_text)
     } else {
         String::new()
@@ -79,7 +79,7 @@ async fn main() -> Result<(), String> {
     let res = prompt_ollama(prompt, &ollama, model.to_string()).await;
 
     match res {
-        PromptResponse::Error(_) => Err("unable to request Ollama, is Ollama running?".to_string()),
+        PromptResponse::Error(err) => Err(format!("unable to request Ollama, is Ollama running?: {}", err)),
         PromptResponse::Response(res) => {
             output_to_stdout(res.as_str());
             Ok(())
@@ -113,7 +113,7 @@ fn get_parsed_arguments() -> Arguments {
     let mut url = None;
     let mut port = None;
 
-    let mut last_active_flag = None;
+    let mut last_active_flag = Some(USER_FLAG);
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
